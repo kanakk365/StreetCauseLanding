@@ -1,7 +1,7 @@
 const stats = [
-  { value: "10,000", label: "Total Impact" },
-  { value: "15,000", label: "Total No. of Projects" },
-  { value: "₹5,00,00,000", label: "Total Project Spend" },
+  { value: "3M+", label: "Total Impact" },
+  { value: "250+", label: "Total No. of Projects" },
+  { value: "₹5.5 cr+", label: "Project Spent" },
 ];
 
 export default function Stats() {

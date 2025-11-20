@@ -1,6 +1,7 @@
 import Image from "next/image";
 import Link from "next/link";
-import { Facebook, Instagram, X } from "lucide-react";
+import { Youtube, Linkedin, Instagram } from "lucide-react";
+import WhatsAppIcon from "./WhatsAppIcon";
 
 const quickLinks = [
   "Home",
@@ -11,23 +12,36 @@ const quickLinks = [
   "Contact Us",
 ];
 
-const involvementLinks = [
-  "Volunteer With Us",
-  "Donate",
-  "Become a Partner",
-];
+const involvementLinks = ["Volunteer With Us", "Donate", "Become a Partner"];
 
 const socialLinks = [
-  { href: "https://www.facebook.com", label: "Facebook", Icon: Facebook },
-  { href: "https://www.instagram.com", label: "Instagram", Icon: Instagram },
-  { href: "https://www.x.com", label: "X", Icon: X },
+  {
+    href: "https://www.youtube.com/@streetcauseindia",
+    label: "YouTube",
+    Icon: Youtube,
+  },
+  {
+    href: "https://in.linkedin.com/company/street-cause",
+    label: "LinkedIn",
+    Icon: Linkedin,
+  },
+  {
+    href: "https://www.instagram.com/streetcause.india/?hl=en",
+    label: "Instagram",
+    Icon: Instagram,
+  },
+  {
+    href: "https://wa.me/919666683722",
+    label: "WhatsApp",
+    Icon: WhatsAppIcon,
+  },
 ];
 
 export default function Footer() {
   return (
     <footer className="bg-linear-to-r from-[#1ba574] to-[#21759c] mt-20 text-slate-100">
       <div className="mx-auto grid max-w-6xl gap-12 px-6 py-4 sm:grid-cols-2 lg:grid-cols-4">
-        <div >
+        <div>
           <div className="relative size-40">
             <Image
               src="/whiteLogo.png"

@@ -1,6 +1,9 @@
 export default function About() {
   return (
-    <section id="about" className="mx-auto mt-24 w-full max-w-4xl px-6 text-center">
+    <section
+      id="about"
+      className="mx-auto mt-24 w-full max-w-4xl px-6 text-center"
+    >
       <div className="space-y-5">
         <p className="text-sm font-semibold uppercase tracking-[0.45em] text-slate-500">
           About
@@ -9,9 +12,12 @@ export default function About() {
           Street Cause India
         </h2>
         <p className="text-lg leading-8 text-slate-600">
-          Street Cause is India&apos;s largest student-run NGO, uniting young leaders across six cities
-          to drive education, environment, healthcare, and community impact. Since 2009, our 65+
-          college chapters have empowered thousands of students to create lasting social change.
+          Street Cause is a national student-run NGO dedicated to serving the
+          underprivileged and creating positive social change through
+          initiatives in education, healthcare, environment, animal welfare, and
+          community welfare. We empower students to become socially conscious
+          leaders by driving meaningful, community-focused projects and
+          continuously expanding our reach and impact.
         </p>
       </div>
     </section>
