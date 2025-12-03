@@ -1,8 +1,49 @@
 "use client";
 
-import { FormEvent, useState } from "react";
+import { FormEvent, useState, useEffect } from "react";
 import ThemedDropdown from "@/components/ThemedDropdown";
 import SuccessModal from "@/components/SuccessModal";
+
+// Razorpay types
+interface RazorpayOptions {
+  key: string;
+  amount: number;
+  currency: string;
+  name: string;
+  description: string;
+  order_id?: string;
+  subscription_id?: string;
+  prefill: {
+    name: string;
+    email: string;
+    contact: string;
+  };
+  theme: {
+    color: string;
+  };
+  modal: {
+    ondismiss: () => void;
+  };
+  handler: () => void | Promise<void>;
+}
+
+interface RazorpayInstance {
+  on: (event: string, callback: (response: RazorpayErrorResponse) => void) => void;
+  open: () => void;
+}
+
+interface RazorpayErrorResponse {
+  error?: {
+    description?: string;
+  };
+}
+
+// Declare Razorpay types
+declare global {
+  interface Window {
+    Razorpay: new (options: RazorpayOptions) => RazorpayInstance;
+  }
+}
 
 const subscriptionPlans = [
   { label: "Monthly", value: "MONTHLY" },
@@ -27,6 +68,8 @@ const countryCodes = [
 
 type DonationType = "subscribe" | "one-time";
 
+const API_BASE_URL = "https://scapi.elitceler.com/api/v1";
+
 export default function SubscriptionForm() {
   const [showSuccess, setShowSuccess] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -46,6 +89,131 @@ export default function SubscriptionForm() {
   const [referredBy, setReferredBy] = useState("");
   const [idProofType, setIdProofType] = useState("");
   const [idProofNumber, setIdProofNumber] = useState("");
+
+  // Load Razorpay script
+  useEffect(() => {
+    const script = document.createElement("script");
+    script.src = "https://checkout.razorpay.com/v1/checkout.js";
+    script.async = true;
+    document.body.appendChild(script);
+
+    return () => {
+      const existingScript = document.querySelector('script[src="https://checkout.razorpay.com/v1/checkout.js"]');
+      if (existingScript) {
+        document.body.removeChild(existingScript);
+      }
+    };
+  }, []);
+
+  // Check payment status with retry logic
+  const checkPaymentStatus = async (donationId: string, retries = 3): Promise<boolean> => {
+    for (let i = 0; i < retries; i++) {
+      try {
+        const response = await fetch(`${API_BASE_URL}/payments/status/${donationId}`);
+        if (!response.ok) {
+          if (i < retries - 1) {
+            await new Promise(resolve => setTimeout(resolve, 2000));
+            continue;
+          }
+          return false;
+        }
+        const data = await response.json();
+        if (data.status === "PAID" || data.status === "CREATED") {
+          return true;
+        }
+        // If status is not PAID or CREATED yet, wait and retry
+        if (i < retries - 1) {
+          await new Promise(resolve => setTimeout(resolve, 2000));
+        }
+      } catch (err) {
+        console.error("Error checking payment status:", err);
+        if (i < retries - 1) {
+          await new Promise(resolve => setTimeout(resolve, 2000));
+        }
+      }
+    }
+    return false;
+  };
+
+  // Handle Razorpay payment
+  const handleRazorpayPayment = async (
+    orderId: string | null,
+    subscriptionId: string | null,
+    donationId: string,
+    amount: number
+  ) => {
+    if (!window.Razorpay) {
+      setError("Payment gateway is loading. Please try again in a moment.");
+      setIsLoading(false);
+      return;
+    }
+
+    const razorpayKey = process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID || "rzp_test_Ri67q4jrlKNQ8d";
+
+    const options: RazorpayOptions = {
+      key: razorpayKey,
+      amount: amount * 100, 
+      currency: "INR",
+      name: "Street Cause",
+      description: donationType === "subscribe" 
+        ? "Subscription Donation" 
+        : "One-Time Donation",
+      prefill: {
+        name: fullName,
+        email: email,
+        contact: `${countryCode}${phoneNumber}`,
+      },
+      theme: {
+        color: "#1ba574",
+      },
+      modal: {
+        ondismiss: function() {
+          setIsLoading(false);
+          setError("Payment cancelled by user");
+        },
+      },
+      handler: async function () {
+        // Payment successful - verify status
+        setIsLoading(true);
+        try {
+          // Check payment status with retries
+          const isPaid = await checkPaymentStatus(donationId, 5);
+          
+          if (isPaid) {
+            setShowSuccess(true);
+            setIsLoading(false);
+          } else {
+            setError("Payment verification failed. Please contact support if payment was deducted.");
+            setIsLoading(false);
+          }
+        } catch {
+          setError("Error verifying payment. Please contact support.");
+          setIsLoading(false);
+        }
+      },
+    };
+
+    // Add order_id or subscription_id based on payment type
+    if (donationType === "subscribe" && subscriptionId) {
+      options.subscription_id = subscriptionId;
+    } else if (donationType === "one-time" && orderId) {
+      options.order_id = orderId;
+    }
+
+    try {
+      const razorpay = new window.Razorpay(options);
+      
+      razorpay.on("payment.failed", function (response: RazorpayErrorResponse) {
+        setError(`Payment failed: ${response.error?.description || "Unknown error"}`);
+        setIsLoading(false);
+      });
+
+      razorpay.open();
+    } catch {
+      setError("Failed to initialize payment. Please try again.");
+      setIsLoading(false);
+    }
+  };
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -71,7 +239,7 @@ export default function SubscriptionForm() {
           idProofNumber,
         };
 
-        response = await fetch("https://scapi.elitceler.com/api/v1/payments/subscribe", {
+        response = await fetch(`${API_BASE_URL}/payments/subscribe`, {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
@@ -92,7 +260,7 @@ export default function SubscriptionForm() {
           idProofNumber,
         };
 
-        response = await fetch("https://scapi.elitceler.com/api/v1/payments/one-time", {
+        response = await fetch(`${API_BASE_URL}/payments/one-time`, {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
@@ -106,11 +274,18 @@ export default function SubscriptionForm() {
         throw new Error(errorData.message || "Failed to process donation. Please try again.");
       }
 
-      await response.json();
-      setShowSuccess(true);
+      const data = await response.json();
+
+      // Extract donationId and orderId/subscriptionId
+      const donationId = data.donationId;
+      const orderId = data.orderId || null;
+      const subscriptionId = data.subscriptionId || null;
+      const paymentAmount = data.amount || parseInt(amount, 10);
+
+      // Open Razorpay payment modal
+      await handleRazorpayPayment(orderId, subscriptionId, donationId, paymentAmount);
     } catch (err) {
       setError(err instanceof Error ? err.message : "An error occurred. Please try again.");
-    } finally {
       setIsLoading(false);
     }
   }
