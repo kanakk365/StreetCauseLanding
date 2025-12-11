@@ -75,7 +75,7 @@ export default function SubscriptionForm() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [donationType, setDonationType] = useState<DonationType>("subscribe");
-  
+
   // Form state
   const [fullName, setFullName] = useState("");
   const [countryCode, setCountryCode] = useState("");
@@ -140,7 +140,7 @@ export default function SubscriptionForm() {
     orderId: string | null,
     subscriptionId: string | null,
     donationId: string,
-    amount: number
+    amountInPaise: number
   ) => {
     if (!window.Razorpay) {
       setError("Payment gateway is loading. Please try again in a moment.");
@@ -152,11 +152,11 @@ export default function SubscriptionForm() {
 
     const options: RazorpayOptions = {
       key: razorpayKey,
-      amount: amount * 100, 
+      amount: amountInPaise, // Amount is already in paise
       currency: "INR",
       name: "Street Cause",
-      description: donationType === "subscribe" 
-        ? "Subscription Donation" 
+      description: donationType === "subscribe"
+        ? "Subscription Donation"
         : "One-Time Donation",
       prefill: {
         name: fullName,
@@ -167,7 +167,7 @@ export default function SubscriptionForm() {
         color: "#1ba574",
       },
       modal: {
-        ondismiss: function() {
+        ondismiss: function () {
           setIsLoading(false);
           setError("Payment cancelled by user");
         },
@@ -178,7 +178,7 @@ export default function SubscriptionForm() {
         try {
           // Check payment status with retries
           const isPaid = await checkPaymentStatus(donationId, 5);
-          
+
           if (isPaid) {
             setShowSuccess(true);
             setIsLoading(false);
@@ -202,8 +202,9 @@ export default function SubscriptionForm() {
 
     try {
       const razorpay = new window.Razorpay(options);
-      
+
       razorpay.on("payment.failed", function (response: RazorpayErrorResponse) {
+        console.error("Payment failed:", response.error);
         setError(`Payment failed: ${response.error?.description || "Unknown error"}`);
         setIsLoading(false);
       });
@@ -280,10 +281,21 @@ export default function SubscriptionForm() {
       const donationId = data.donationId;
       const orderId = data.orderId || null;
       const subscriptionId = data.subscriptionId || null;
-      const paymentAmount = data.amount || parseInt(amount, 10);
+
+      // Calculate amount in paise correctly
+      // If backend returns data.amount, assume it is in paise (Razorpay standard)
+      // Otherwise calculate from input (Rupees * 100)
+      let paymentAmountInPaise: number;
+      if (data.amount) {
+        paymentAmountInPaise = data.amount;
+      } else if (amount) {
+        paymentAmountInPaise = parseInt(amount, 10) * 100;
+      } else {
+        paymentAmountInPaise = 0; // Should not happen for one-time
+      }
 
       // Open Razorpay payment modal
-      await handleRazorpayPayment(orderId, subscriptionId, donationId, paymentAmount);
+      await handleRazorpayPayment(orderId, subscriptionId, donationId, paymentAmountInPaise);
     } catch (err) {
       setError(err instanceof Error ? err.message : "An error occurred. Please try again.");
       setIsLoading(false);
@@ -370,11 +382,10 @@ export default function SubscriptionForm() {
                   onChange={(e) => setDonationType(e.target.value as DonationType)}
                   className="sr-only"
                 />
-                <span className={`inline-flex h-4 w-4 items-center justify-center rounded-full border ${
-                  donationType === "subscribe" 
-                    ? "border-[#1ba574] bg-[#1ba574]" 
+                <span className={`inline-flex h-4 w-4 items-center justify-center rounded-full border ${donationType === "subscribe"
+                    ? "border-[#1ba574] bg-[#1ba574]"
                     : "border-slate-300"
-                }`}>
+                  }`}>
                   {donationType === "subscribe" && (
                     <span className="h-2 w-2 rounded-full bg-white" />
                   )}
@@ -390,11 +401,10 @@ export default function SubscriptionForm() {
                   onChange={(e) => setDonationType(e.target.value as DonationType)}
                   className="sr-only"
                 />
-                <span className={`inline-flex h-4 w-4 items-center justify-center rounded-full border ${
-                  donationType === "one-time" 
-                    ? "border-[#1ba574] bg-[#1ba574]" 
+                <span className={`inline-flex h-4 w-4 items-center justify-center rounded-full border ${donationType === "one-time"
+                    ? "border-[#1ba574] bg-[#1ba574]"
                     : "border-slate-300"
-                }`}>
+                  }`}>
                   {donationType === "one-time" && (
                     <span className="h-2 w-2 rounded-full bg-white" />
                   )}
