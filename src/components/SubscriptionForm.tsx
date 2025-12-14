@@ -74,6 +74,7 @@ export default function SubscriptionForm() {
   const [showSuccess, setShowSuccess] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [idProofError, setIdProofError] = useState<string | null>(null);
   const [donationType, setDonationType] = useState<DonationType>("subscribe");
 
   // Form state
@@ -135,6 +136,50 @@ export default function SubscriptionForm() {
     return false;
   };
 
+  // Validate ID proof number based on type
+  const validateIdProof = (type: string, number: string): string | null => {
+    if (!type || !number) return null;
+
+    const digitsOnly = number.replace(/\D/g, '');
+
+    switch (type) {
+      case "AADHAAR":
+        if (digitsOnly.length !== 12) {
+          return "Aadhar number must be exactly 12 digits";
+        }
+        break;
+      case "PAN":
+        if (number.length !== 10) {
+          return "PAN number must be exactly 10 characters";
+        }
+        break;
+      case "PASSPORT":
+        if (number.replace(/\s/g, '').length !== 8) {
+          return "Passport number must be exactly 8 characters";
+        }
+        break;
+    }
+    return null;
+  };
+
+  // Handle ID proof number change with validation
+  const handleIdProofNumberChange = (value: string) => {
+    setIdProofNumber(value);
+    if (idProofType) {
+      const validationError = validateIdProof(idProofType, value);
+      setIdProofError(validationError);
+    }
+  };
+
+  // Handle ID proof type change
+  const handleIdProofTypeChange = (value: string) => {
+    setIdProofType(value);
+    if (idProofNumber) {
+      const validationError = validateIdProof(value, idProofNumber);
+      setIdProofError(validationError);
+    }
+  };
+
   // Handle Razorpay payment
   const handleRazorpayPayment = async (
     orderId: string | null,
@@ -152,7 +197,7 @@ export default function SubscriptionForm() {
 
     const options: RazorpayOptions = {
       key: razorpayKey,
-      amount: amountInPaise, // Amount is already in paise
+      amount: amountInPaise,
       currency: "INR",
       name: "Street Cause",
       description: donationType === "subscribe"
@@ -173,10 +218,8 @@ export default function SubscriptionForm() {
         },
       },
       handler: async function () {
-        // Payment successful - verify status
         setIsLoading(true);
         try {
-          // Check payment status with retries
           const isPaid = await checkPaymentStatus(donationId, 5);
 
           if (isPaid) {
@@ -219,6 +262,15 @@ export default function SubscriptionForm() {
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError(null);
+
+    // Validate ID proof before submission
+    const validationError = validateIdProof(idProofType, idProofNumber);
+    if (validationError) {
+      setIdProofError(validationError);
+      setError("Please fix the errors before submitting");
+      return;
+    }
+
     setIsLoading(true);
 
     try {
@@ -383,8 +435,8 @@ export default function SubscriptionForm() {
                   className="sr-only"
                 />
                 <span className={`inline-flex h-4 w-4 items-center justify-center rounded-full border ${donationType === "subscribe"
-                    ? "border-[#1ba574] bg-[#1ba574]"
-                    : "border-slate-300"
+                  ? "border-[#1ba574] bg-[#1ba574]"
+                  : "border-slate-300"
                   }`}>
                   {donationType === "subscribe" && (
                     <span className="h-2 w-2 rounded-full bg-white" />
@@ -402,8 +454,8 @@ export default function SubscriptionForm() {
                   className="sr-only"
                 />
                 <span className={`inline-flex h-4 w-4 items-center justify-center rounded-full border ${donationType === "one-time"
-                    ? "border-[#1ba574] bg-[#1ba574]"
-                    : "border-slate-300"
+                  ? "border-[#1ba574] bg-[#1ba574]"
+                  : "border-slate-300"
                   }`}>
                   {donationType === "one-time" && (
                     <span className="h-2 w-2 rounded-full bg-white" />
@@ -449,23 +501,28 @@ export default function SubscriptionForm() {
                 placeholder="ID Proof Type"
                 options={idProofTypes}
                 value={idProofType}
-                onChange={(e) => setIdProofType(e.target.value)}
+                onChange={(e) => handleIdProofTypeChange(e.target.value)}
                 required
               />
-              <input
-                type="text"
-                placeholder="ID Proof Number"
-                value={idProofNumber}
-                onChange={(e) => setIdProofNumber(e.target.value)}
-                required
-                className="rounded-xl border border-emerald-100 bg-white px-4 py-3 text-sm text-slate-700 focus:border-[#1ba574] focus:outline-none"
-              />
+              <div className="flex flex-col gap-1">
+                <input
+                  type="text"
+                  placeholder="ID Proof Number"
+                  value={idProofNumber}
+                  onChange={(e) => handleIdProofNumberChange(e.target.value)}
+                  required
+                  className={`rounded-xl border ${idProofError ? 'border-red-400 bg-red-50' : 'border-emerald-100 bg-white'} px-4 py-3 text-sm text-slate-700 focus:border-[#1ba574] focus:outline-none`}
+                />
+                {idProofError && (
+                  <span className="text-xs text-red-600 px-1">{idProofError}</span>
+                )}
+              </div>
             </div>
 
             <div className="grid gap-4">
               <input
                 type="text"
-                placeholder="Referred By"
+                placeholder="Enter Volunteer ID"
                 value={referredBy}
                 onChange={(e) => setReferredBy(e.target.value)}
                 className="rounded-xl border border-emerald-100 bg-white px-4 py-3 text-sm text-slate-700 focus:border-[#1ba574] focus:outline-none"
